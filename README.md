@@ -1,7 +1,7 @@
 # cctune
 
 [![CI](https://github.com/pcangemi/cctune/actions/workflows/ci.yml/badge.svg)](https://github.com/pcangemi/cctune/actions/workflows/ci.yml)
-[![crates.io](https://img.shields.io/crates/v/cctune.svg)](https://crates.io/crates/cctune)
+[![crates.io](https://img.shields.io/crates/v/cctune)](https://crates.io/crates/cctune)
 [![License: MIT OR Apache-2.0](https://img.shields.io/badge/license-MIT%20OR%20Apache--2.0-blue.svg)](#license)
 
 Control Apple Music from the terminal and from Claude Code:
