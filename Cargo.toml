@@ -1,0 +1,26 @@
+[package]
+name = "cctune"
+version = "0.1.0"
+edition = "2024"
+authors = ["Pierre CANGEMI"]
+description = "Control Apple Music from the terminal and from Claude Code: commands, an MCP server and a live status line"
+repository = "https://github.com/pcangemi/cctune"
+license = "MIT OR Apache-2.0"
+readme = "README.md"
+keywords = ["apple-music", "claude-code", "mcp", "statusline", "macos"]
+categories = ["command-line-utilities", "multimedia::audio"]
+exclude = [".github/", "dist-workspace.toml"]
+
+[dependencies]
+serde_json = "1"
+
+[profile.release]
+opt-level = 3
+lto = true
+codegen-units = 1
+panic = "abort"
+strip = true
+
+# The profile that 'dist' builds releases with: the release profile as it is.
+[profile.dist]
+inherits = "release"
