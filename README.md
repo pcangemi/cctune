@@ -18,6 +18,10 @@ Control Apple Music from the terminal and from Claude Code:
 - **Type it**: `/cctune next` at Claude Code's prompt, or `cctune next` in any terminal. Neither
   goes through Claude.
 
+![cctune in Claude Code: the player under the prompt, /cctune next, /cctune vol 80, then Claude asked for something calm](docs/demo.gif)
+
+<sub>An animation of cctune in Claude Code, with made-up tracks.</sub>
+
 A single Rust binary of about 500 KB, for macOS only (Apple Silicon and Intel): it drives the
 Music app.
 
