@@ -175,7 +175,7 @@ pub fn run(player: &dyn Player, action: &Action) -> Result<String, Error> {
         Action::Search(q, limit) => {
             let found = player.search(q, *limit)?;
             if found.is_empty() {
-                return Ok(format!("nothing in your library matches \"{q}\""));
+                return Ok(crate::music::no_match(q));
             }
             Ok(found.iter().map(|t| format!("{} — {} · {} ({})", t.name, t.artist, t.album, clock(t.duration))).collect::<Vec<_>>().join("\n"))
         }

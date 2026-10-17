@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+- Says plainly that only your library and playlists can be played, not the Apple Music catalog:
+  in the message when nothing matches, in the MCP tools (so Claude picks a playlist for a mood
+  instead of searching for one) and in the README.
+
 ## 0.1.1 - 2026-10-17
 
 - `/cctune` in Claude Code: `/cctune next`, `/cctune playlist "Eras Tour"`… runs cctune and shows

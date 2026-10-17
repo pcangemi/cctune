@@ -267,6 +267,12 @@ fn tracks(out: &str) -> Vec<Track> {
         .collect()
 }
 
+/// What to say when nothing matches. AppleScript reaches the library only: a catalog song plays
+/// once it is added to the library in Music, and opening its link shows it without playing it.
+pub fn no_match(query: &str) -> String {
+    format!("nothing in your library matches \"{query}\" (cctune plays your library and playlists, not the Apple Music catalog)")
+}
+
 impl Player for AppleMusic {
     fn now(&self) -> Result<Now, Error> {
         if !music_running() {
@@ -343,7 +349,7 @@ impl Player for AppleMusic {
 
     fn play_song(&self, query: &str) -> Result<Track, Error> {
         let found = Self::run(SEARCH_SCRIPT, &[query, "1", "play"]).map(|o| tracks(&o))?;
-        found.into_iter().next().ok_or_else(|| Error(format!("nothing in your library matches \"{query}\"")))
+        found.into_iter().next().ok_or_else(|| Error(no_match(query)))
     }
 }
 

@@ -10,8 +10,10 @@ use crate::actions;
 use crate::music::Player;
 
 const INSTRUCTIONS: &str = "Controls the Apple Music app on this Mac: what is playing, play, pause, next, previous, \
-volume, shuffle, repeat, seeking, the user's playlists, and songs of the user's library (searching the Apple Music \
-catalog is not possible). Prefer music_play_playlist or music_play_song when the user names something to listen to.";
+volume, shuffle, repeat, seeking, the user's playlists, and songs of the user's library. Only the library and the \
+playlists can be played, not the Apple Music catalog: tell the user so when nothing matches. Prefer \
+music_play_playlist or music_play_song when the user names something to listen to; for a mood (calm, focus, \
+party), pick a playlist whose name fits, since searching the library only matches names, artists and albums.";
 
 fn tools() -> Value {
     let none = json!({"type": "object", "properties": {}});
@@ -61,14 +63,14 @@ fn tools() -> Value {
         ),
         tool(
             "music_search",
-            "Search the user's library for tracks by name, artist or album.",
+            "Search the user's library for tracks by name, artist or album (not the Apple Music catalog, and not by mood).",
             &json!({
                 "type": "object", "properties": {"query": {"type": "string"}, "limit": {"type": "number", "minimum": 1, "maximum": 50}}, "required": ["query"]
             })
         ),
         tool(
             "music_play_song",
-            "Play the best match in the user's library for a song, artist or album.",
+            "Play the best match in the user's library for a song, artist or album (not the Apple Music catalog).",
             &json!({
                 "type": "object", "properties": {"query": {"type": "string"}}, "required": ["query"]
             })
@@ -208,7 +210,7 @@ mod tests {
             Ok(vec![])
         }
         fn play_song(&self, q: &str) -> Result<Track, Error> {
-            Err(Error(format!("nothing in your library matches \"{q}\"")))
+            Err(Error(crate::music::no_match(q)))
         }
     }
 
@@ -251,6 +253,7 @@ mod tests {
                 call(3, "music_play_playlist", json!({"name": "focus"})),
                 call(4, "music_play_playlist", json!({"name": "polka"})),
                 call(5, "music_teleport", json!({})),
+                call(6, "music_search", json!({"query": "something calm"})),
             ],
         );
         let text = |r: &Value| r["result"]["content"][0]["text"].as_str().unwrap().to_string();
@@ -259,6 +262,17 @@ mod tests {
         assert_eq!(text(&replies[2]), "playing the playlist Deep Focus");
         assert_eq!(replies[3]["result"]["isError"], true);
         assert_eq!(replies[4]["result"]["isError"], true);
+        assert!(text(&replies[5]).contains("not the Apple Music catalog"), "{}", text(&replies[5]));
         assert_eq!(*fake.log.borrow(), vec!["volume 35".to_string()]);
+    }
+
+    #[test]
+    fn tells_claude_the_catalog_is_out_of_reach() {
+        let tools = tools();
+        for name in ["music_search", "music_play_song"] {
+            let tool = tools.as_array().unwrap().iter().find(|t| t["name"] == name).unwrap();
+            assert!(tool["description"].as_str().unwrap().contains("not the Apple Music catalog"), "{name}");
+        }
+        assert!(INSTRUCTIONS.contains("not the Apple Music catalog"));
     }
 }

@@ -23,7 +23,8 @@ Control Apple Music from the terminal and from Claude Code:
 <sub>An animation of cctune in Claude Code, with made-up tracks.</sub>
 
 A single Rust binary of about 500 KB, for macOS only (Apple Silicon and Intel): it drives the
-Music app.
+Music app. It plays what is in your library and your playlists, not the whole Apple Music catalog
+(see [Limits](#limits)).
 
 ## Install
 
@@ -148,7 +149,11 @@ run printed (read by `cctune doctor`).
 ## Limits
 
 - macOS only, and only the Music app.
-- Your library and playlists: AppleScript cannot search or stream the Apple Music catalog.
+- Your library and playlists only, not the Apple Music catalog: AppleScript cannot search it, and
+  opening a catalog song's link in Music shows the song without playing it. To play a song of the
+  catalog, add it to your library in Music first.
+- Search matches names, artists and albums, not moods: for "something calm", ask Claude, which
+  picks among your playlists.
 - Claude Code hides its status line while a permission prompt or the help menu is open.
 - The status line refreshes once a second at most: that is Claude Code's minimum.
 
