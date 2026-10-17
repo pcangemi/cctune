@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.1.1 - 2026-10-17
 
 - `/cctune` in Claude Code: `/cctune next`, `/cctune playlist "Eras Tour"`… runs cctune and shows
   its answer with no round trip to Claude, even mid-turn. A Claude Code plugin in `claude-plugin/`:
