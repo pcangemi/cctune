@@ -197,30 +197,98 @@ fn fnv(s: &str) -> u64 {
     s.bytes().fold(0xcbf2_9ce4_8422_2325u64, |h, b| (h ^ b as u64).wrapping_mul(0x0100_0000_01b3))
 }
 
-/// The wrapped status line's output: the last one while the session has not changed, else the
-/// command run again with Claude Code's data on its input.
+/// How long a status line run waits for the wrapped command before it prints that command's last
+/// output instead. Claude Code cancels a run still going when the next one starts (about every
+/// second), and a status line like claude-hud takes 0.5 s or more on a long session: a run that
+/// waited for it could be cancelled every time, and the screen would stay frozen.
+const WRAP_WAIT_MS: i64 = 150;
+
+/// The wrapped status line's output: the last one while the session has not changed; else the
+/// command runs again in the background with Claude Code's data on its input, and this run takes
+/// its output if it comes within `WRAP_WAIT_MS`, or the last one.
 fn wrapped(command: &str, input: &str) -> String {
     let session = serde_json::from_str::<Value>(input).ok().and_then(|v| v.get("session_id").and_then(Value::as_str).map(str::to_string));
-    let path = cache_dir().join(format!("wrapped-{}", session.as_deref().unwrap_or("none").replace(['/', '\\', '.'], "_")));
+    let name = session.as_deref().unwrap_or("none").replace(['/', '\\', '.'], "_");
+    let path = cache_dir().join(format!("wrapped-{name}"));
     let key = format!("{:016x}", fnv(&format!("{command}\n{}", steady(input))));
-    if let Ok(text) = std::fs::read_to_string(&path)
-        && let Some(out) = text.strip_prefix(&key).and_then(|t| t.strip_prefix('\n'))
-    {
-        return out.to_string();
-    }
-    let Ok(mut child) = Command::new("/bin/sh").arg("-c").arg(command).stdin(Stdio::piped()).stdout(Stdio::piped()).stderr(Stdio::null()).spawn() else {
-        return String::new();
+    let cached = || -> (Option<String>, String) {
+        let text = std::fs::read_to_string(&path).unwrap_or_default();
+        let (k, out) = text.split_once('\n').unwrap_or((text.as_str(), ""));
+        (Some(k.to_string()).filter(|k| !k.is_empty()), out.to_string())
     };
-    if let Some(mut stdin) = child.stdin.take() {
+    let (had, last) = cached();
+    if had.as_deref() == Some(key.as_str()) {
+        return last;
+    }
+    start_wrap(command, input, &path, &key, &cache_dir().join(format!("wrapping-{name}")));
+    let until = now_ms() + WRAP_WAIT_MS;
+    while now_ms() < until {
+        std::thread::sleep(std::time::Duration::from_millis(10));
+        let (k, out) = cached();
+        if k.as_deref() == Some(key.as_str()) {
+            return out;
+        }
+    }
+    last
+}
+
+/// Runs the wrapped command in the background, once at a time per session: it outlives this run,
+/// so its output is ready for the next one even when Claude Code cancels this one.
+fn start_wrap(command: &str, input: &str, path: &std::path::Path, key: &str, busy: &std::path::Path) {
+    let at = now_ms();
+    let since = std::fs::read_to_string(busy).ok().and_then(|t| t.trim().parse::<i64>().ok());
+    if since.is_some_and(|t| (0..GIVE_UP_MS).contains(&(at - t))) {
+        return;
+    }
+    let _ = std::fs::create_dir_all(cache_dir());
+    let _ = std::fs::write(busy, at.to_string());
+    if cfg!(test) {
+        // The test binary has no `statusline-wrap` command: a thread stands for the process.
+        let (command, input, path, key, busy) = (command.to_string(), input.to_string(), path.to_path_buf(), key.to_string(), busy.to_path_buf());
+        std::thread::spawn(move || wrap_once(&command, &input, &path, &key, &busy));
+        return;
+    }
+    let Ok(exe) = std::env::current_exe() else { return };
+    let mut cmd = Command::new(exe);
+    cmd.arg("statusline-wrap").arg(path).arg(key).arg(busy).arg(command);
+    cmd.stdin(Stdio::piped()).stdout(Stdio::null()).stderr(Stdio::null());
+    #[cfg(unix)]
+    std::os::unix::process::CommandExt::process_group(&mut cmd, 0);
+    if let Ok(mut child) = cmd.spawn()
+        && let Some(mut stdin) = child.stdin.take()
+    {
         let _ = stdin.write_all(input.as_bytes());
     }
-    let Ok(out) = child.wait_with_output() else { return String::new() };
-    let text = String::from_utf8_lossy(&out.stdout).trim_end_matches('\n').to_string();
-    if out.status.success() {
-        let _ = std::fs::create_dir_all(cache_dir());
-        let _ = std::fs::write(&path, format!("{key}\n{text}"));
+}
+
+/// `cctune statusline-wrap PATH KEY BUSY COMMAND`, started by `start_wrap` with Claude Code's
+/// data on its input.
+pub fn wrap_in_background(args: &[&str]) {
+    let [path, key, busy, command] = args else { return };
+    let mut input = String::new();
+    let _ = std::io::stdin().read_to_string(&mut input);
+    wrap_once(command, &input, std::path::Path::new(path), key, std::path::Path::new(busy));
+}
+
+/// Runs the wrapped command and keeps its output under `key`, written whole (a run never reads
+/// half of it).
+fn wrap_once(command: &str, input: &str, path: &std::path::Path, key: &str, busy: &std::path::Path) {
+    let child = Command::new("/bin/sh").arg("-c").arg(command).stdin(Stdio::piped()).stdout(Stdio::piped()).stderr(Stdio::null()).spawn();
+    if let Ok(mut child) = child {
+        if let Some(mut stdin) = child.stdin.take() {
+            let _ = stdin.write_all(input.as_bytes());
+        }
+        if let Ok(out) = child.wait_with_output()
+            && out.status.success()
+        {
+            let text = String::from_utf8_lossy(&out.stdout).trim_end_matches('\n').to_string();
+            let part = path.with_extension(format!("part-{}", std::process::id()));
+            if std::fs::write(&part, format!("{key}\n{text}")).is_ok() {
+                let _ = std::fs::rename(&part, path);
+            }
+        }
     }
-    text
+    let _ = std::fs::remove_file(busy);
 }
 
 /// Prints the status line: the wrapped one first, then the player.
@@ -253,14 +321,59 @@ pub fn run(args: &[&str]) {
     let wrap = args.iter().position(|a| *a == "--wrap").and_then(|i| args.get(i + 1)).copied();
     let compact = args.contains(&"--compact");
     let cols = std::env::var("COLUMNS").ok().and_then(|c| c.parse().ok()).unwrap_or(80usize);
+    let started = now_ms();
     let hud = wrap.map(|cmd| wrapped(cmd, &input)).unwrap_or_default();
     let at = now_ms();
-    let (now, stale) = current(at, crate::music::music_running());
+    let running = crate::music::music_running();
+    let (now, stale) = current(at, running);
     if stale {
         ask_in_background(at);
     }
+    let why = match &now {
+        Some(n) => format!("player shown ({:?} at {})", n.state, clock(n.position)),
+        None if !running => "no player: Music is not running".to_string(),
+        None => "no player: no recent answer from Music yet".to_string(),
+    };
     let player = now.map(|n| render(&n, cols)).unwrap_or_default();
-    println!("{}", compose(&hud, &player, compact));
+    let out = compose(&hud, &player, compact);
+    println!("{out}");
+    // What the last run printed and why, per session, to explain what Claude Code shows
+    // (`cctune doctor`).
+    let session = serde_json::from_str::<Value>(&input).ok().and_then(|v| v.get("session_id").and_then(Value::as_str).map(str::to_string));
+    let _ = std::fs::write(
+        cache_dir().join(format!("last-run-{}", session.as_deref().unwrap_or("none").replace(['/', '\\', '.'], "_"))),
+        format!("at {at}\ntook {} ms\ncolumns {cols}\nmusic running {running}\nasked Music again {stale}\n{why}\n--- printed:\n{out}\n", now_ms() - started),
+    );
+}
+
+/// `cctune doctor`: for each Claude Code session, what its status line printed last, when, and
+/// why the player was shown or not. The most recent first.
+pub fn doctor() -> String {
+    let at = now_ms();
+    let mut runs: Vec<(i64, String, String)> = std::fs::read_dir(cache_dir())
+        .into_iter()
+        .flatten()
+        .flatten()
+        .filter_map(|e| {
+            let name = e.file_name().to_string_lossy().to_string();
+            let session = name.strip_prefix("last-run-")?.to_string();
+            let text = std::fs::read_to_string(e.path()).ok()?;
+            let when = text.lines().next()?.strip_prefix("at ")?.parse::<i64>().ok()?;
+            Some((when, session, text))
+        })
+        .collect();
+    if runs.is_empty() {
+        return "the status line has not run yet (is it set in ~/.claude/settings.json?)".to_string();
+    }
+    runs.sort_by_key(|r| std::cmp::Reverse(r.0));
+    runs.iter()
+        .map(|(when, session, text)| {
+            let ago = (at - when) as f64 / 1000.0;
+            let body: Vec<&str> = text.lines().skip(1).collect();
+            format!("session {session}: last run {ago:.1} s ago\n{}", body.join("\n"))
+        })
+        .collect::<Vec<_>>()
+        .join("\n\n")
 }
 
 #[cfg(test)]
@@ -359,6 +472,28 @@ mod tests {
         assert_eq!(wrapped(&cmd, &tick(3000, 2.0)), "HUD");
         assert_eq!(runs(), 2, "new session data runs it again");
         let _ = std::fs::remove_dir_all(&dir);
+        let _ = std::fs::remove_file(cache_dir().join(format!("wrapped-{session}")));
+    }
+
+    #[test]
+    fn a_slow_wrapped_line_never_holds_the_status_line() {
+        // Claude Code cancels a run still going after about a second: a slow wrapped command must
+        // not hold the run, and its output shows on a later run.
+        let session = format!("slow-{}", std::process::id());
+        let input = format!(r#"{{"session_id":"{session}"}}"#);
+        let cmd = "cat > /dev/null; sleep 0.6; echo SLOW";
+        let at = now_ms();
+        assert_eq!(wrapped(cmd, &input), "", "nothing yet, and no waiting for it");
+        assert!(now_ms() - at < 400, "the run did not wait for the command");
+        let mut later = String::new();
+        for _ in 0..30 {
+            std::thread::sleep(std::time::Duration::from_millis(100));
+            later = wrapped(cmd, &input);
+            if !later.is_empty() {
+                break;
+            }
+        }
+        assert_eq!(later, "SLOW", "a later run shows the output");
         let _ = std::fs::remove_file(cache_dir().join(format!("wrapped-{session}")));
     }
 }

@@ -38,6 +38,9 @@ FOR CLAUDE CODE:
                            \"statusLine\": {\"type\": \"command\", \"command\": \"cctune statusline\",
                                           \"refreshInterval\": 1}
 
+    doctor               For each session: what the status line printed last, how long it took, and
+                         why the player shows or not
+
     -h, --help           Show this help
     -V, --version        Show the version
 
@@ -70,6 +73,16 @@ fn main() -> ExitCode {
         "statusline" => {
             // A status line always exits cleanly: a failure would blank Claude Code's line.
             statusline::run(rest);
+            ExitCode::SUCCESS
+        }
+        "doctor" => {
+            println!("{}", statusline::doctor());
+            ExitCode::SUCCESS
+        }
+        // Started by the status line, in the background: runs the wrapped status line and keeps
+        // its output.
+        "statusline-wrap" => {
+            statusline::wrap_in_background(rest);
             ExitCode::SUCCESS
         }
         // Started by the status line, in the background: asks Music and keeps the answer.

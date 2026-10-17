@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+- The player could vanish from the status line on a long session: Claude Code cancels a status
+  line run still going when the next one starts, and runs waited for the wrapped status line
+  (claude-hud took up to 0.8 s). The wrapped command now runs in the background; a run waits for
+  it at most 150 ms and takes about 1 ms otherwise.
+- `cctune doctor`: for each Claude Code session, what its status line printed last, how long it
+  took, and why the player shows or not.
 - Names that Music stores HTML-escaped (`R&amp;B/Soul`, often playlists from the web or Shazam)
   show as written (`R&B/Soul`), and `cctune playlist "R&B"` finds them.
 

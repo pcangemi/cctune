@@ -15,8 +15,10 @@ Music, through `osascript`.
 - **Nothing starts the Music app by itself.** Reading what plays answers `off` when Music is
   closed; `music_running` checks the process list without sending Music anything.
 - **The status line runs every second**: it must stay fast and must not fail (a failure blanks
-  Claude Code's line). Ask Music at most every 3 seconds; reuse the wrapped command's output while
-  Claude Code's session data is the same.
+  Claude Code's line). Claude Code cancels a run still going when the next one starts, so a run
+  never waits for Music, and waits at most `WRAP_WAIT_MS` for the wrapped command: both run in the
+  background. Ask Music at most every 3 seconds; reuse the wrapped command's output while Claude
+  Code's session data is the same. `cctune doctor` shows what each session's last run printed.
 - **A new action is added once**, in `actions.rs` (`Action`, `from_cli`, `from_tool`, `run`), then
   exposed as a command in `HELP` and as a tool in `mcp::tools`. Update the README tables too.
 - One runtime dependency (`serde_json`): the MCP protocol is small enough to speak by hand.

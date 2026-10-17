@@ -93,6 +93,7 @@ not every second:
 | `cctune search daft punk` | Find tracks in your library |
 | `cctune mcp` | The MCP server for Claude Code |
 | `cctune statusline [--wrap 'COMMAND'] [--compact]` | The status line; the player has a blank line above and below it, unless `--compact` |
+| `cctune doctor` | For each Claude Code session: what its status line printed last, how long it took, and why the player shows or not |
 | `cctune --help`, `--version` | Help, version |
 
 The MCP tools: `music_now_playing`, `music_play`, `music_pause`, `music_toggle`, `music_next`,
@@ -114,11 +115,16 @@ waits for Music, which takes 0.3 to 1.5 seconds to answer:
   plays.
 - With Music closed, it checks the process list and asks nothing: close to no cost, and the
   player disappears.
+- A wrapped status line runs in the background too. Claude Code cancels a status line run still
+  going when the next one starts, and a status line like claude-hud can take half a second on a long
+  session: a run that waited for it could be cancelled every time, freezing the screen. cctune
+  waits at most 150 ms for it, then prints its last output; the new one shows on the next tick.
 - A skip or a pause made through cctune shows within a second; one made elsewhere (keyboard keys,
   the Music window) within about 3 seconds.
 
-To do this, it keeps two small files in its folder of the system's temporary directory: the last
-answer of Music, and the last output of the wrapped status line.
+To do this, it keeps small files in its folder of the system's temporary directory: the last
+answer of Music, and for each session the last output of the wrapped status line and what the last
+run printed (read by `cctune doctor`).
 
 ## Limits
 
