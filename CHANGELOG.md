@@ -1,5 +1,10 @@
 # Changelog
 
+## Unreleased
+
+- Names that Music stores HTML-escaped (`R&amp;B/Soul`, often playlists from the web or Shazam)
+  show as written (`R&B/Soul`), and `cctune playlist "R&B"` finds them.
+
 ## 0.1.0 - 2026-10-17
 
 First release.

@@ -83,9 +83,9 @@ impl Now {
         let num = |i: usize| f.get(i).and_then(|v| v.trim().parse::<f64>().ok()).unwrap_or(0.0).max(0.0);
         Now {
             state,
-            name: f.get(1).unwrap_or(&"").to_string(),
-            artist: f.get(2).unwrap_or(&"").to_string(),
-            album: f.get(3).unwrap_or(&"").to_string(),
+            name: unescape(f.get(1).unwrap_or(&"")),
+            artist: unescape(f.get(2).unwrap_or(&"")),
+            album: unescape(f.get(3).unwrap_or(&"")),
             duration: num(4) as u32,
             position: num(5) as u32,
             volume: num(6).min(100.0) as u8,
@@ -258,9 +258,9 @@ fn tracks(out: &str) -> Vec<Track> {
         .map(|l| {
             let f: Vec<&str> = l.split('\t').collect();
             Track {
-                name: f.first().unwrap_or(&"").to_string(),
-                artist: f.get(1).unwrap_or(&"").to_string(),
-                album: f.get(2).unwrap_or(&"").to_string(),
+                name: unescape(f.first().unwrap_or(&"")),
+                artist: unescape(f.get(1).unwrap_or(&"")),
+                album: unescape(f.get(2).unwrap_or(&"")),
                 duration: f.get(3).and_then(|d| d.trim().parse().ok()).unwrap_or(0),
             }
         })
@@ -317,14 +317,24 @@ impl Player for AppleMusic {
             .lines()
             .filter_map(|l| {
                 let (name, n) = l.rsplit_once('\t')?;
-                Some(Playlist { name: name.to_string(), tracks: n.trim().parse().unwrap_or(0) })
+                Some(Playlist { name: unescape(name), tracks: n.trim().parse().unwrap_or(0) })
             })
             .collect())
     }
 
     fn play_playlist(&self, name: &str) -> Result<String, Error> {
-        let found = Self::run(PLAY_PLAYLIST_SCRIPT, &[name])?;
-        if found.is_empty() { Err(Error(format!("no playlist named like \"{name}\""))) } else { Ok(found) }
+        // Some names are stored HTML-escaped (`R&amp;B`): try the name as typed, then escaped.
+        let mut tries = vec![name.to_string()];
+        if escape(name) != name {
+            tries.push(escape(name));
+        }
+        for wanted in tries {
+            let found = Self::run(PLAY_PLAYLIST_SCRIPT, &[&wanted])?;
+            if !found.is_empty() {
+                return Ok(unescape(&found));
+            }
+        }
+        Err(Error(format!("no playlist named like \"{name}\"")))
     }
 
     fn search(&self, query: &str, limit: usize) -> Result<Vec<Track>, Error> {
@@ -335,6 +345,20 @@ impl Player for AppleMusic {
         let found = Self::run(SEARCH_SCRIPT, &[query, "1", "play"]).map(|o| tracks(&o))?;
         found.into_iter().next().ok_or_else(|| Error(format!("nothing in your library matches \"{query}\"")))
     }
+}
+
+/// Music returns some names HTML-escaped (`R&amp;B/Soul`, often playlists that came from the web
+/// or Shazam): they are shown as people wrote them.
+pub fn unescape(s: &str) -> String {
+    if !s.contains('&') {
+        return s.to_string();
+    }
+    s.replace("&lt;", "<").replace("&gt;", ">").replace("&quot;", "\"").replace("&#39;", "'").replace("&apos;", "'").replace("&amp;", "&")
+}
+
+/// The escaped spelling of a name, to find one stored that way.
+fn escape(s: &str) -> String {
+    s.replace('&', "&amp;").replace('<', "&lt;").replace('>', "&gt;")
 }
 
 /// Whether the Music app runs, asked of the system without starting it or sending it anything,
@@ -410,6 +434,15 @@ mod tests {
             assert!(res.status.success(), "the {name} script does not compile: {}", String::from_utf8_lossy(&res.stderr));
         }
         let _ = std::fs::remove_file(&out);
+    }
+
+    #[test]
+    fn shows_escaped_names_as_written() {
+        assert_eq!(unescape("R&amp;B/RAP 2000'S"), "R&B/RAP 2000'S");
+        assert_eq!(unescape("Tom &amp; Jerry &lt;3"), "Tom & Jerry <3");
+        assert_eq!(unescape("AC/DC"), "AC/DC");
+        assert_eq!(escape("R&B/Soul"), "R&amp;B/Soul");
+        assert_eq!(Now::parse("playing\tR&amp;B Song\tA &amp; B\tX\t10\t1\t50\tfalse\toff").artist, "A & B");
     }
 
     #[test]
