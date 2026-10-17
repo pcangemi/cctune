@@ -1,0 +1,14 @@
+{
+  "name": "cctune",
+  "description": "cctune: control Apple Music from Claude Code",
+  "owner": {
+    "name": "Pierre CANGEMI"
+  },
+  "plugins": [
+    {
+      "name": "cctune",
+      "source": "./claude-plugin",
+      "description": "/cctune: control Apple Music from Claude Code's prompt, answered locally with no round trip to Claude"
+    }
+  ]
+}

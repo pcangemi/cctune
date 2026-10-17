@@ -1,0 +1,16 @@
+{
+  "name": "cctune",
+  "version": "0.1.0",
+  "description": "/cctune: control Apple Music from Claude Code's prompt, answered locally with no round trip to Claude",
+  "author": { "name": "Pierre CANGEMI" },
+  "repository": "https://github.com/pcangemi/cctune",
+  "license": "MIT OR Apache-2.0",
+  "userConfig": {
+    "binary": {
+      "type": "string",
+      "title": "cctune program",
+      "description": "The cctune program to run: its name on the PATH, or a full path",
+      "default": "cctune"
+    }
+  }
+}

@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- `/cctune` in Claude Code: `/cctune next`, `/cctune playlist "Eras Tour"`… runs cctune and shows
+  its answer with no round trip to Claude, even mid-turn. A Claude Code plugin in `claude-plugin/`:
+  `/plugin install cctune --marketplace pcangemi/cctune`.
 - The player could vanish from the status line on a long session: Claude Code cancels a status
   line run still going when the next one starts, and runs waited for the wrapped status line
   (claude-hud took up to 0.8 s). The wrapped command now runs in the background; a run waits for

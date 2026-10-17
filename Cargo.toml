@@ -9,7 +9,7 @@ license = "MIT OR Apache-2.0"
 readme = "README.md"
 keywords = ["apple-music", "claude-code", "mcp", "statusline", "macos"]
 categories = ["command-line-utilities", "multimedia::audio"]
-exclude = [".github/", "dist-workspace.toml"]
+exclude = [".github/", ".claude-plugin/", "claude-plugin/", "dist-workspace.toml"]
 
 [dependencies]
 serde_json = "1"

@@ -15,7 +15,8 @@ Control Apple Music from the terminal and from Claude Code:
   ▶ ━━━━━━━━━━━━━╋────────────── 2:14 / 6:09 ⇄ ↻  vol 60%
   ```
 
-- **Type it**: `cctune next`, or `! cctune next` inside Claude Code, with no round trip to Claude.
+- **Type it**: `/cctune next` at Claude Code's prompt, or `cctune next` in any terminal. Neither
+  goes through Claude.
 
 A single Rust binary of about 500 KB, for macOS only (Apple Silicon and Intel): it drives the
 Music app.
@@ -51,13 +52,27 @@ it later: System Settings › Privacy & Security › Automation.
 
 ### In Claude Code
 
-Let Claude control Music:
+Three parts, each optional.
+
+**Ask Claude** ("skip this one", "play my focus playlist"): register the MCP server.
 
 ```sh
 claude mcp add cctune -s user -- cctune mcp
 ```
 
-Show the player in the status line, refreshed every second. In `~/.claude/settings.json`:
+**Type `/cctune`**: `/cctune next`, `/cctune playlist "Eras Tour"`, `/cctune vol 40`. The cctune
+plugin runs cctune and shows its answer, with nothing sent to Claude, even while Claude is working.
+At Claude Code's prompt:
+
+```
+/plugin install cctune --marketplace pcangemi/cctune
+```
+
+Answer `y` to add the marketplace, then pick a scope (user: every session). From a shell:
+`claude plugin install cctune --marketplace pcangemi/cctune`. Without the plugin, `! cctune next`
+does the same.
+
+**See the player** in the status line, refreshed every second. In `~/.claude/settings.json`:
 
 ```json
 "statusLine": {
@@ -136,7 +151,8 @@ run printed (read by `cctune doctor`).
 ## Development
 
 [AGENTS.md](AGENTS.md) is the map for anyone (or any agent) changing the code;
-`scripts/verify.sh` checks formatting, lints and tests (CI runs it on macOS).
+`scripts/verify.sh` checks formatting, lints and tests (CI runs it on macOS), and the `/cctune`
+plugin in `claude-plugin/` when Claude Code is installed.
 
 ```sh
 git clone https://github.com/pcangemi/cctune.git
